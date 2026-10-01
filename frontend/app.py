@@ -1,351 +1,160 @@
-import streamlit as st
+"""Streamlit frontend for the existing AI Career Assistant backend."""
+import os
+from datetime import datetime
+
 import requests
+import streamlit as st
 
-st.set_page_config(
-    page_title="AI Career Assistant",
-    page_icon="🤖",
-    layout="centered"
-)
+st.set_page_config(page_title="AI Career Assistant", page_icon="✦", layout="wide")
+BASE_URL = os.getenv("CAREER_BACKEND_URL", "http://127.0.0.1:8000").rstrip("/")
 
-BACKEND_URL = "http://127.0.0.1:8000/chat"
-HEALTH_URL = "http://127.0.0.1:8000/health"
+st.markdown("""
+<style>
+.stApp { background: #f6f8fa; color: #172b35; }
+.block-container { max-width: 1080px; padding-top: 2.5rem; padding-bottom: 5rem; }
+[data-testid="stSidebar"] { background: #edf3f3; border-right: 1px solid #dae5e5; }
+h1, h2, h3 { color: #172b35 !important; letter-spacing: -.035em; }
+[data-testid="stMarkdownContainer"] p, [data-testid="stMarkdownContainer"] li { color: #304650; }
+.eyebrow { color: #087f78; font-size: .75rem; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }
+.hero { padding: 28px 0 22px; }
+.hero h1 { font-size: clamp(2rem, 5vw, 3.5rem); line-height: 1.12; margin: 12px 0; }
+.hero p { max-width: 650px; color: #60737d; font-size: 1.05rem; line-height: 1.7; }
+.brand { font-size: 1.3rem; font-weight: 750; color: #172b35; margin-bottom: 8px; }
+.brand span { color: #087f78; }
+.note { color: #60737d; font-size: .85rem; line-height: 1.6; }
+[data-testid="stChatMessage"] { background: white; border: 1px solid #e0e8eb; border-radius: 16px; padding: 20px; margin: 12px 0; }
+[data-testid="stChatInput"] textarea { background: white; color: #172b35; }
+[data-testid="stBottom"] { background: #f6f8fa; }
+.stButton > button, .stDownloadButton > button { border-radius: 10px; border: 1px solid #cadada; background: white; color: #172b35; min-height: 44px; }
+.stButton > button:hover, .stDownloadButton > button:hover { border-color: #087f78; color: #087f78; }
+.stButton > button[kind="primary"] { background: #087f78; color: white; border-color: #087f78; }
+[data-testid="stVerticalBlockBorderWrapper"] > div { border-radius: 16px; }
+@media (max-width: 640px) { .block-container { padding-top: 1.5rem; } .hero { padding-top: 12px; } }
+</style>
+""", unsafe_allow_html=True)
 
-st.markdown(
-    """
-    <style>
-    .stApp {
-        background-color: #ffffff;
-        color: #111827;
-    }
-
-    .block-container {
-        max-width: 850px;
-        padding-top: 2rem;
-        padding-bottom: 7rem;
-    }
-
-    header {
-        visibility: hidden;
-    }
-
-    footer {
-        visibility: hidden;
-    }
-
-    h1 {
-        color: #111827 !important;
-        text-align: center;
-        font-size: 28px !important;
-        margin-bottom: 5px;
-    }
-
-    .subtitle {
-        text-align: center;
-        color: #4b5563 !important;
-        font-size: 14px;
-        margin-bottom: 30px;
-    }
-
-    [data-testid="stChatMessage"] {
-        background-color: transparent !important;
-        border: none !important;
-        padding: 8px 0 !important;
-        margin-bottom: 8px !important;
-    }
-
-    [data-testid="stChatMessage"] p {
-        color: #111827 !important;
-        font-size: 15px !important;
-        line-height: 1.6 !important;
-    }
-
-    [data-testid="stChatMessage"] li {
-        color: #111827 !important;
-    }
-
-    [data-testid="stChatMessage"] strong {
-        color: #111827 !important;
-    }
-
-    [data-testid="stChatInput"] {
-        background-color: #ffffff !important;
-    }
-
-    [data-testid="stChatInput"] > div {
-        background-color: #ffffff !important;
-        border: 1px solid #d1d5db !important;
-        border-radius: 14px !important;
-        box-shadow: none !important;
-    }
-
-    [data-testid="stChatInput"] textarea {
-        background-color: #ffffff !important;
-        color: #111827 !important;
-        font-size: 15px !important;
-    }
-
-    [data-testid="stChatInput"] textarea::placeholder {
-        color: #6b7280 !important;
-    }
-
-    [data-testid="stSidebar"] {
-        background-color: #f8fafc !important;
-    }
-
-    [data-testid="stSidebar"] p {
-        color: #374151 !important;
-    }
-
-    [data-testid="stSidebar"] h1,
-    [data-testid="stSidebar"] h2,
-    [data-testid="stSidebar"] h3 {
-        color: #111827 !important;
-    }
-
-    .stButton > button {
-        width: 100%;
-        background-color: #ffffff !important;
-        color: #111827 !important;
-        border: 1px solid #d1d5db !important;
-        border-radius: 8px !important;
-    }
-
-    .stButton > button:hover {
-        border-color: #2563eb !important;
-        color: #2563eb !important;
-    }
-
-    .welcome {
-        text-align: center;
-        margin-top: 70px;
-        margin-bottom: 30px;
-    }
-
-    .welcome-title {
-        color: #111827 !important;
-        font-size: 24px;
-        font-weight: 600;
-    }
-
-    .status {
-        background-color: #ecfdf5;
-        color: #047857 !important;
-        border: 1px solid #a7f3d0;
-        border-radius: 8px;
-        padding: 8px;
-        text-align: center;
-        font-size: 13px;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
+PROMPTS = [
+    ("01 / EXPLORE", "Find your direction", "Compare career paths that fit your interests and strengths.",
+     "Help me explore career options. Ask me about my interests, education and strengths first."),
+    ("02 / PLAN", "Build a learning roadmap", "Turn a career goal into practical learning steps.",
+     "Help me create a learning roadmap for my target career. Ask about my goal, current skills and available study time first."),
+    ("03 / PREPARE", "Improve your resume", "Get guidance on clearer bullets and relevant skills.",
+     "Help me improve my resume for a target role. Ask me to paste my resume text and describe the role first."),
+    ("04 / PRACTICE", "Prepare for interviews", "Practice questions tailored to the role you want.",
+     "Help me prepare for an interview. Ask about the role and my experience, then suggest practice questions."),
+]
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
+if "pending_prompt" not in st.session_state:
+    st.session_state.pending_prompt = None
+
+
+@st.cache_data(ttl=15, show_spinner=False)
+def backend_available(url):
+    try:
+        return requests.get(f"{url}/health", timeout=2).status_code == 200
+    except requests.exceptions.RequestException:
+        return False
+
+
+def choose_prompt(prompt):
+    st.session_state.pending_prompt = prompt
+
+
+def clear_chat():
+    st.session_state.messages = []
+    st.session_state.pending_prompt = None
+
 
 with st.sidebar:
-
-    st.markdown(
-        """
-        <div style="text-align:center;">
-            <div style="font-size:40px;">🤖</div>
-            <h2 style="color:#111827;">AI Career Assistant</h2>
-            <p style="color:#4b5563;">
-                Your AI assistant for learning,
-                careers and professional development.
-            </p>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-
+    st.markdown('<div class="brand"><span>✦</span> Career Assistant</div>', unsafe_allow_html=True)
+    st.caption("A little clarity for your next big step.")
+    st.button("＋  New conversation", type="primary", use_container_width=True, on_click=clear_chat)
     st.divider()
-
-    st.markdown(
-        "<h4 style='color:#111827;'>I can help with</h4>",
-        unsafe_allow_html=True
-    )
-
-    st.write("💼 Career Guidance")
-    st.write("🎓 Education")
-    st.write("🤖 AI & Machine Learning")
-    st.write("📊 Data Science")
-    st.write("🐍 Python")
-    st.write("📈 Data Analytics")
-    st.write("📝 Resume & ATS")
-    st.write("🎤 Interview Preparation")
-    st.write("🔬 Science")
-    st.write("💻 Technology")
-    st.write("☤🩺 Medicine")
-    st.write("🔍 Research")
-
+    st.markdown("#### Start with a goal")
+    for index, (_, title, _, prompt) in enumerate(PROMPTS):
+        st.button(title, key=f"side_{index}", use_container_width=True,
+                  on_click=choose_prompt, args=(prompt,))
     st.divider()
-
-    st.markdown(
-        "<h4 style='color:#111827;'>Backend Status</h4>",
-        unsafe_allow_html=True
-    )
-
-    try:
-        response = requests.get(
-            HEALTH_URL,
-            timeout=5
+    st.markdown("#### Your conversation")
+    question_count = sum(message["role"] == "user" for message in st.session_state.messages)
+    st.caption(f"{question_count} question{'s' if question_count != 1 else ''} in this session")
+    if st.session_state.messages:
+        transcript = "\n\n".join(
+            f"{'You' if message['role'] == 'user' else 'Career Assistant'}:\n{message['content']}"
+            for message in st.session_state.messages
         )
-
-        if response.status_code == 200:
-            st.markdown(
-                """
-                <div class="status">
-                    ● Backend Connected
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
-        else:
-            st.error(
-                f"Backend error: {response.status_code}"
-            )
-
-    except requests.exceptions.RequestException:
-        st.error("Backend offline")
-
+        st.download_button("Download conversation", transcript,
+                           file_name=f"career-chat-{datetime.now():%Y%m%d}.txt",
+                           mime="text/plain", use_container_width=True)
     st.divider()
-
-    if st.button("🗑️ Clear Chat"):
-        st.session_state.messages = []
+    online = backend_available(BASE_URL)
+    st.caption("🟢 Assistant connected" if online else "⚪ Assistant unavailable")
+    if st.button("Refresh connection", use_container_width=True):
+        backend_available.clear()
         st.rerun()
+    st.markdown('<div class="note">Answers are based on your latest question. Include relevant background each time. Verify important career and course details.</div>', unsafe_allow_html=True)
 
-st.markdown(
-    "<h1>🤖 AI Career Assistant</h1>",
-    unsafe_allow_html=True
-)
-
-st.markdown(
-    """
-    <div class="subtitle">
-        Ask me anything about careers, education,
-        AI, technology, science and more...
+st.markdown('<div class="eyebrow">Your next chapter starts here</div>', unsafe_allow_html=True)
+if not st.session_state.messages:
+    st.markdown("""
+    <div class="hero">
+      <h1>Big ambitions.<br>A clearer next step.</h1>
+      <p>Explore your options, build your skills, and prepare for what comes next.
+      Start with a goal below or ask a question of your own.</p>
     </div>
-    """,
-    unsafe_allow_html=True
-)
-
-if len(st.session_state.messages) == 0:
-    st.markdown(
-        """
-        <div class="welcome">
-            <div class="welcome-title">
-                👋 How can I help you today?
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
+    """, unsafe_allow_html=True)
+    for row in range(2):
+        columns = st.columns(2)
+        for column, index in zip(columns, range(row * 2, row * 2 + 2)):
+            label, title, description, prompt = PROMPTS[index]
+            with column:
+                with st.container(border=True):
+                    st.caption(label)
+                    st.markdown(f"### {title}")
+                    st.write(description)
+                    st.button("Let's get started →", key=f"card_{index}",
+                              use_container_width=True, on_click=choose_prompt, args=(prompt,))
+    st.caption("Tip: share your education, interests, and target role for a more useful answer.")
+else:
+    st.title("Your career conversation")
+    st.caption("Explore possibilities. Leave with a practical next step.")
 
 for message in st.session_state.messages:
-
-    avatar = "👤" if message["role"] == "user" else "🤖"
-
-    with st.chat_message(
-        message["role"],
-        avatar=avatar
-    ):
+    with st.chat_message(message["role"], avatar="✦" if message["role"] == "assistant" else "👤"):
         st.markdown(message["content"])
 
-user_input = st.chat_input("Ask anything...")
+# A card click and a typed question both enter the same request flow.
+typed_prompt = st.chat_input("What would you like to work on today?")
+prompt = typed_prompt or st.session_state.pending_prompt
+st.session_state.pending_prompt = None
 
-if user_input:
-
-    st.session_state.messages.append(
-        {
-            "role": "user",
-            "content": user_input
-        }
-    )
-
-    with st.chat_message(
-        "user",
-        avatar="👤"
-    ):
-        st.markdown(user_input)
-
-    with st.chat_message(
-        "assistant",
-        avatar="🤖"
-    ):
-
-        with st.spinner("Thinking..."):
-
-            try:
-
-                recent_messages = (
-                    st.session_state.messages[-2:]
-                )
-
+if prompt and prompt.strip():
+    prompt = prompt.strip()
+    st.session_state.messages.append({"role": "user", "content": prompt})
+    with st.chat_message("user", avatar="👤"):
+        st.markdown(prompt)
+    with st.chat_message("assistant", avatar="✦"):
+        try:
+            with st.spinner("Working on your next step…"):
                 response = requests.post(
-                    BACKEND_URL,
-                    json={
-                        "messages": recent_messages
-                    },
-                    timeout=300
+                    f"{BASE_URL}/chat",
+                    json={"messages": st.session_state.messages[-2:]},
+                    timeout=(5, 300),
                 )
-
-                if response.status_code == 200:
-
-                    data = response.json()
-
-                    answer = data.get("answer")
-
-                    if answer is None:
-                        answer = data.get("response")
-
-                    if answer is None:
-                        answer = (
-                            "Sorry, I couldn't generate "
-                            "an answer."
-                        )
-
-                    st.markdown(answer)
-
-                    st.session_state.messages.append(
-                        {
-                            "role": "assistant",
-                            "content": answer
-                        }
-                    )
-
-                else:
-
-                    st.error(
-                        f"Backend error: "
-                        f"{response.status_code}"
-                    )
-
-                    st.code(response.text)
-
-            except requests.exceptions.ConnectionError:
-
-                st.error(
-                    "❌ Cannot connect to FastAPI."
-                )
-
-                st.info(
-                    "Start the backend using:"
-                )
-
-                st.code(
-                    "uvicorn main:app --reload"
-                )
-
-            except requests.exceptions.Timeout:
-
-                st.error(
-                    "⏳ The AI took too long to respond."
-                )
-
-            except Exception as e:
-
-                st.error(
-                    f"Something went wrong: {str(e)}"
-                )
+                response.raise_for_status()
+                data = response.json()
+                answer = data.get("answer") or data.get("response")
+                if not isinstance(answer, str) or not answer.strip():
+                    raise ValueError("The assistant returned an empty or invalid answer.")
+            st.session_state.messages.append({"role": "assistant", "content": answer})
+            st.rerun()
+        except requests.exceptions.ConnectionError:
+            st.error("The assistant is unavailable. Start the backend and try again.")
+        except requests.exceptions.Timeout:
+            st.error("The answer took too long. Please try a shorter question.")
+        except requests.exceptions.HTTPError:
+            st.error(f"The assistant could not complete this request (HTTP {response.status_code}). Please try again.")
+        except (ValueError, requests.exceptions.RequestException):
+            st.error("The assistant returned an unexpected response. Please try again.")
