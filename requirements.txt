@@ -1,8 +1,2 @@
-fastapi
-uvicorn
-pydantic
-torch
-transformers
-accelerate
 streamlit
-requests
+groq
