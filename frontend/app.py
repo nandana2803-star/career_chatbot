@@ -99,11 +99,13 @@ if prompt and prompt.strip():
         try:
             with st.spinner("Thinking…"):
                 completion = client.chat.completions.create(
-                    model="llama-3.3-70b-versatile",
+                    model="openai/gpt-oss-20b",
                     messages=[{"role": "system", "content": SYSTEM_PROMPT}]
                     + st.session_state.messages[-8:],
                     temperature=0.5,
-                    max_completion_tokens=800,
+                    max_completion_tokens=2048,
+                    reasoning_effort="low",
+                    reasoning_format="hidden",
                 )
                 answer = completion.choices[0].message.content
                 if not answer or not answer.strip():
