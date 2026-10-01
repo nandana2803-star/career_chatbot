@@ -116,7 +116,24 @@ if prompt and prompt.strip():
             st.error("The free AI usage limit has been reached. Please try again later.")
         except APIConnectionError:
             st.error("Cannot reach the AI service right now. Please try again.")
-        except APIStatusError:
-            st.error("The AI service could not complete the request. Please try again later.")
+        except APIStatusError as error:
+            status = error.status_code
+            if status == 403:
+                st.error("Groq denied access (HTTP 403). Check your account and model permissions in Groq Console.")
+            elif status == 404:
+                st.error("The configured AI model was not found (HTTP 404). Check available models in Groq Console.")
+            elif status == 400:
+                st.error("Groq rejected the request (HTTP 400). Check the model and request settings.")
+            elif status == 413:
+                st.error("The conversation is too large (HTTP 413). Clear the chat and send a shorter message.")
+            elif status >= 500:
+                st.error(f"Groq is experiencing a service error (HTTP {status}). Please try again later.")
+            else:
+                st.error(f"Groq could not complete the request (HTTP {status}).")
+            # Server logs only; never print the API key or request headers.
+            body = error.body if isinstance(error.body, dict) else {}
+            detail = body.get("error", {})
+            code = detail.get("code", "unknown") if isinstance(detail, dict) else "unknown"
+            print(f"Groq request failed: HTTP {status}, code={code}")
         except (ValueError, IndexError):
             st.error("The AI returned an empty response. Please try again.")
