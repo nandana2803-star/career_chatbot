@@ -1,11 +1,24 @@
 """Simple chat frontend for AI Career Assistant."""
 import os
 
-import requests
+from groq import Groq, AuthenticationError, RateLimitError, APIConnectionError, APIStatusError
 import streamlit as st
 
 st.set_page_config(page_title="AI Career Assistant", page_icon="💬", layout="centered")
-BACKEND_URL = os.getenv("CAREER_BACKEND_URL", "http://127.0.0.1:8000").rstrip("/") + "/chat"
+SYSTEM_PROMPT = """You are a helpful career assistant. Give practical, balanced advice on
+careers, education, skills, resumes and interviews across all fields. Ask clarifying
+questions when needed. Do not invent salaries, rankings or course details. Give
+clear, complete answers and consider the conversation context."""
+api_key = os.getenv("GROQ_API_KEY")
+if not api_key:
+    try:
+        api_key = st.secrets.get("GROQ_API_KEY")
+    except FileNotFoundError:
+        api_key = None
+if not api_key:
+    st.error("Add GROQ_API_KEY in your app's Secrets settings, then restart the app.")
+    st.stop()
+client = Groq(api_key=api_key, timeout=60.0, max_retries=0)
 
 st.markdown("""
 <style>
@@ -85,26 +98,25 @@ if prompt and prompt.strip():
     with st.chat_message("assistant"):
         try:
             with st.spinner("Thinking…"):
-                response = requests.post(
-                    BACKEND_URL,
-                    json={"messages": st.session_state.messages[-2:]},
-                    timeout=(5, 300),
+                completion = client.chat.completions.create(
+                    model="llama-3.3-70b-versatile",
+                    messages=[{"role": "system", "content": SYSTEM_PROMPT}]
+                    + st.session_state.messages[-8:],
+                    temperature=0.5,
+                    max_completion_tokens=800,
                 )
-                response.raise_for_status()
-                data = response.json()
-                if not isinstance(data, dict):
-                    raise ValueError("Invalid response")
-                answer = data.get("answer") or data.get("response")
-                if not isinstance(answer, str) or not answer.strip():
+                answer = completion.choices[0].message.content
+                if not answer or not answer.strip():
                     raise ValueError("Empty answer")
             st.markdown(answer)
             st.session_state.messages.append({"role": "assistant", "content": answer})
-        except requests.exceptions.ConnectionError:
-            st.error("Cannot connect to the assistant. Start the backend and try again.")
-        except requests.exceptions.Timeout:
-            st.error("The response took too long. Please try again.")
-        except requests.exceptions.HTTPError:
-            st.error(f"Request failed (HTTP {response.status_code}). Please try again.")
-        except (ValueError, requests.exceptions.RequestException):
-            st.error("Could not read the assistant's response. Please try again.")
-
+        except AuthenticationError:
+            st.error("The API key is invalid. Update GROQ_API_KEY in your app's Secrets settings.")
+        except RateLimitError:
+            st.error("The free AI usage limit has been reached. Please try again later.")
+        except APIConnectionError:
+            st.error("Cannot reach the AI service right now. Please try again.")
+        except APIStatusError:
+            st.error("The AI service could not complete the request. Please try again later.")
+        except (ValueError, IndexError):
+            st.error("The AI returned an empty response. Please try again.")
